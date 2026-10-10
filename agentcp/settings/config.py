@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import os
 from typing import Optional
@@ -156,7 +157,7 @@ def save_model_name(model_name: str, provider: Optional[str] = None):
     MODEL_NAME = model
 
 
-def get_supported_models(provider: str | None = None):
+def get_supported_models(provider: Optional[str] = None):
     provider = _normalize_provider(provider or get_active_provider())
     if provider == "openai":
         return [

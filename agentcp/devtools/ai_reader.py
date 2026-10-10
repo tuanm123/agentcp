@@ -1,3 +1,4 @@
+from __future__ import annotations
 """AI Reader: scans docs/, src/agentcp/, and test/.
 
 Designed to be lightweight and safe to run in CI or locally.

@@ -72,7 +72,6 @@ def detect_provider_from_api_key(api_key: str) -> str:
         return "anthropic"
     return DEFAULT_PROVIDER
 
-... (later in file) ...
 
 def generate_response(
     problem_name: str,

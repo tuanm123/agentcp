@@ -1,3 +1,4 @@
+from __future__ import annotations
 import requests
 import re
 import html as html_lib
