@@ -10,12 +10,12 @@ SUPPORTED_PROVIDERS = ("gemini", "openai", "anthropic")
 DEFAULT_MODEL_BY_PROVIDER = {
     "gemini": "gemini-2.5-flash",
     "openai": "gpt-5.4-mini",
-    "anthropic": "claude-3-5-sonnet-20240620",
+    "anthropic": "claude-3-5-sonnet-20241022",
 }
 
 SUPPORTED_MODELS = (
     "gemini-2.5-flash",
-    "gemini-2.5-pro",
+    "gemini-3.1-pro-preview",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
 )
@@ -171,6 +171,9 @@ def get_supported_models(provider: Optional[str] = None):
         ]
     if provider == "anthropic":
         return [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-7-sonnet-20250219",
+            "claude-3-5-haiku-20241022",
             "claude-3-5-sonnet-20240620",
         ]
     return list(SUPPORTED_MODELS)

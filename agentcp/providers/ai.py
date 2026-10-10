@@ -28,7 +28,7 @@ VISION_JPEG_QUALITY = 82
 DEFAULT_MODEL_CANDIDATES = {
     "gemini": [
         "gemini-2.5-flash",
-        "gemini-2.5-pro",
+        "gemini-3.1-pro-preview",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
     ],
@@ -40,6 +40,12 @@ DEFAULT_MODEL_CANDIDATES = {
         "gpt-4.1-mini",
         "gpt-4o",
         "gpt-4o-mini",
+    ],
+    "anthropic": [
+        "claude-3-5-sonnet-20241022",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-haiku-20241022",
+        "claude-3-5-sonnet-20240620",
     ],
 }
 
