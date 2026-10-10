@@ -1,0 +1,181 @@
+import { useState, useEffect } from 'react'
+
+const PROVIDERS = [
+  { id: 'gemini',    name: 'Google Gemini' },
+  { id: 'openai',   name: 'OpenAI GPT'    },
+  { id: 'anthropic',name: 'Anthropic Claude'},
+]
+
+function GenerateTab() {
+  const [provider, setProvider] = useState('gemini')
+  const [models, setModels] = useState<string[]>([])
+  const [model, setModel] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [problemName, setProblemName] = useState('')
+  const [statement, setStatement] = useState('')
+  const [cppCode, setCppCode] = useState('')
+  const [testCount, setTestCount] = useState(20)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<object | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch(`/api/models?provider=${provider}`)
+      .then(r => r.json())
+      .then(d => {
+        setModels(d.models || [])
+        setModel(d.models?.[0] || '')
+      })
+      .catch(() => {})
+  }, [provider])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError(''); setResult(null)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problem_name: problemName,
+          text_content: statement,
+          user_cpp_code: cppCode,
+          test_count: testCount,
+          api_key: apiKey,
+          provider_name: provider,
+          model_name: model,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Lỗi không xác định')
+      setResult(data)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="card">
+        <div className="row">
+          <div className="form-group">
+            <label>Provider AI</label>
+            <select value={provider} onChange={e => setProvider(e.target.value)}>
+              {PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Model</label>
+            <select value={model} onChange={e => setModel(e.target.value)}>
+              {models.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-group">
+          <label>API Key</label>
+          <input
+            type="password"
+            placeholder={`${provider === 'gemini' ? 'AIza...' : provider === 'openai' ? 'sk-...' : 'sk-ant-...'}`}
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="row">
+          <div className="form-group">
+            <label>Tên bài tập</label>
+            <input
+              type="text"
+              placeholder="VD: Sắp xếp dãy số"
+              value={problemName}
+              onChange={e => setProblemName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="form-group" style={{ maxWidth: 120 }}>
+            <label>Số test</label>
+            <input
+              type="number" min={1} max={100}
+              value={testCount}
+              onChange={e => setTestCount(Number(e.target.value))}
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Đề bài (Markdown)</label>
+          <textarea
+            placeholder="Dán nội dung đề bài vào đây..."
+            value={statement}
+            onChange={e => setStatement(e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label>Code C++ mẫu <span style={{color:'#6b7280'}}>(tuỳ chọn)</span></label>
+          <textarea
+            placeholder="#include <bits/stdc++.h>..."
+            value={cppCode}
+            onChange={e => setCppCode(e.target.value)}
+            style={{ minHeight: 100, fontFamily: 'monospace' }}
+          />
+        </div>
+      </div>
+
+      <button className="btn btn-primary" type="submit" disabled={loading || !problemName}>
+        {loading && <span className="spinner" />}
+        {loading ? 'Đang sinh test...' : '🚀 Sinh test'}
+      </button>
+
+      {error && <div className="error">❌ {error}</div>}
+
+      {result && (
+        <div className="result">{JSON.stringify(result, null, 2)}</div>
+      )}
+    </form>
+  )
+}
+
+function SettingsTab() {
+  return (
+    <div className="card">
+      <p style={{ color: '#9ca3af' }}>
+        Cấu hình API key được lưu tạm thời trong session.<br />
+        Để lưu vĩnh viễn, đặt biến môi trường trên server:<br /><br />
+        <code style={{ color: '#6ee7f7', background: '#0f1117', padding: '2px 8px', borderRadius: 4 }}>
+          GEMINI_API_KEY=...<br />
+          OPENAI_API_KEY=...<br />
+          ANTHROPIC_API_KEY=...
+        </code>
+      </p>
+    </div>
+  )
+}
+
+export default function App() {
+  const [tab, setTab] = useState<'generate' | 'settings'>('generate')
+
+  return (
+    <>
+      <h1>AgentCP</h1>
+      <p className="subtitle">
+        Sinh test tự động cho lập trình thi đấu
+        <span className="badge">Claude Sonnet ✓</span>
+      </p>
+
+      <div className="tabs">
+        <button className={`tab ${tab === 'generate' ? 'active' : ''}`} onClick={() => setTab('generate')}>
+          ⚡ Sinh test
+        </button>
+        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')}>
+          ⚙️ Cài đặt
+        </button>
+      </div>
+
+      {tab === 'generate' && <GenerateTab />}
+      {tab === 'settings' && <SettingsTab />}
+    </>
+  )
+}

@@ -1,44 +1,14 @@
-# Python
+.agentcp_output/
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-*.egg-info/
-
-# Virtual environments
+.env
+.DS_Store
+node_modules/
+frontend/node_modules/
+frontend/dist/
 .venv/
 venv/
-env/
-
-# Runtime artifacts
-logs/
-solutions/
-agentcp/logs/
-agentcp/solutions/
-*.zip
-*.exe
-upload_error_debug.html
-upload_zip_request_debug.txt
-upload_zip_response_debug.html
-debug_test_data.html
-
-# Local AI workspace and non-shipping test workspace
-.codex/
-AGENTS.md
-test/
-docs/
-README.md
-pyproject.toml
-requirements.txt
-
-# Local config and secrets
-.env
-.env.*
-*.local
-
-# PyInstaller builds
+*.egg-info/
 dist/
 build/
-*.spec
