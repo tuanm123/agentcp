@@ -106,19 +106,12 @@ def _generate_anthropic_response(
     stage: str = "analysis",
     generate_statement: bool = True,
 ) -> str:
-    # Build prompt similarly to OpenAI but Anthropic expects a list of messages.
     content = _build_prompt(problem_name, text_content, image_paths, test_count, require_cpp_solution, stage, generate_statement=generate_statement)
-    # Convert content list to a single string if needed.
-    if isinstance(content, list):
-        # Join textual parts; ignore images for simplicity.
-        content_str = "\n".join(str(item) for item in content if isinstance(item, str))
-    else:
-        content_str = str(content)
     payload = {
         "model": _current_model_name,
         "max_tokens": 16384,
         "temperature": 0.1,
-        "messages": [{"role": "user", "content": content_str}],
+        "messages": [{"role": "user", "content": content}],
     }
     response = requests.post(
         "https://api.anthropic.com/v1/messages",
@@ -274,6 +267,14 @@ def _read_image_data_url(image_path: str) -> str:
     return f"data:image/jpeg;base64,{encoded}"
 
 
+def _read_image_base64(image_path: str) -> tuple[str, str]:
+    image = _load_compact_image(image_path).convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=VISION_JPEG_QUALITY, optimize=True)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return encoded, "image/jpeg"
+
+
 def _build_prompt(
     problem_name: str,
     text_content: str,
@@ -358,6 +359,33 @@ def _build_prompt(
                         {
                             "type": "image_url",
                             "image_url": {"url": _read_image_data_url(path), "detail": "low"},
+                        }
+                    )
+                except Exception:
+                    continue
+        return content
+
+    if _current_provider == "anthropic":
+        content = [{"type": "text", "text": prompt}]
+        if text_content:
+            content.append(
+                {
+                    "type": "text",
+                    "text": "Problem statement text provided by the user (if any):\n" + text_content,
+                }
+            )
+        for path in image_paths:
+            if path and os.path.exists(path):
+                try:
+                    data, media_type = _read_image_base64(path)
+                    content.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": data,
+                            },
                         }
                     )
                 except Exception:

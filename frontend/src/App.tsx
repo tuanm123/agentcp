@@ -1,10 +1,66 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const PROVIDERS = [
   { id: 'gemini',    name: 'Google Gemini' },
   { id: 'openai',   name: 'OpenAI GPT'    },
   { id: 'anthropic',name: 'Anthropic Claude'},
 ]
+
+interface AttachedImage {
+  id: string
+  url: string
+  width: number
+  height: number
+}
+
+// Hàm resize ảnh giữ tỉ lệ sao cho max(width, height) <= maxSide (mặc định 1600px)
+function resizeImage(file: File, maxSide = 1600): Promise<AttachedImage> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > maxSide || height > maxSide) {
+          if (width > height) {
+            height = Math.round((height * maxSide) / width)
+            width = maxSide
+          } else {
+            width = Math.round((width * maxSide) / height)
+            height = maxSide
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          return resolve({
+            id: Math.random().toString(36).substring(2, 9),
+            url: img.src,
+            width: img.width,
+            height: img.height,
+          })
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve({
+          id: Math.random().toString(36).substring(2, 9),
+          url: canvas.toDataURL('image/jpeg', 0.85),
+          width,
+          height,
+        })
+      }
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 function GenerateTab() {
   const [provider, setProvider] = useState('gemini')
@@ -13,11 +69,13 @@ function GenerateTab() {
   const [apiKey, setApiKey] = useState('')
   const [problemName, setProblemName] = useState('')
   const [statement, setStatement] = useState('')
+  const [images, setImages] = useState<AttachedImage[]>([])
   const [cppCode, setCppCode] = useState('')
   const [testCount, setTestCount] = useState(20)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<object | null>(null)
   const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch(`/api/models?provider=${provider}`)
@@ -29,6 +87,38 @@ function GenerateTab() {
       .catch(() => {})
   }, [provider])
 
+  const processFiles = async (fileList: FileList | File[]) => {
+    const validFiles = Array.from(fileList).filter(f => f.type.startsWith('image/'))
+    if (!validFiles.length) return
+    try {
+      const resized = await Promise.all(validFiles.map(f => resizeImage(f, 1600)))
+      setImages(prev => [...prev, ...resized])
+    } catch {
+      setError('Lỗi khi xử lý ảnh, vui lòng thử lại.')
+    }
+  }
+
+  // Xử lý khi nhấn Ctrl+V / Cmd+V
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageFiles: File[] = []
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile()
+        if (file) imageFiles.push(file)
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault()
+      processFiles(imageFiles)
+    }
+  }
+
+  const removeImage = (id: string) => {
+    setImages(prev => prev.filter(img => img.id !== id))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true); setError(''); setResult(null)
@@ -39,6 +129,7 @@ function GenerateTab() {
         body: JSON.stringify({
           problem_name: problemName,
           text_content: statement,
+          images: images.map(img => img.url),
           user_cpp_code: cppCode,
           test_count: testCount,
           api_key: apiKey,
@@ -57,7 +148,7 @@ function GenerateTab() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} onPaste={handlePaste}>
       <div className="card">
         <div className="row">
           <div className="form-group">
@@ -105,10 +196,61 @@ function GenerateTab() {
             />
           </div>
         </div>
+
+        {/* Khu vực Upload / Paste ảnh đề bài */}
         <div className="form-group">
-          <label>Đề bài (Markdown)</label>
+          <label>Ảnh đề bài (Tùy chọn – Tự động nén ≤ 1600px)</label>
+          <div
+            className="dropzone"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => {
+              e.preventDefault()
+              if (e.dataTransfer.files) processFiles(e.dataTransfer.files)
+            }}
+          >
+            📸 <strong>Nhấn Ctrl+V / Cmd+V để dán ảnh</strong> hoặc bấm vào đây để chọn ảnh từ máy
+            <div style={{ fontSize: '0.75rem', marginTop: 4, color: '#6ee7f7' }}>
+              Hỗ trợ kéo thả, dán trực tiếp từ clipboard (ảnh tự động xử lý ≤ 1600px)
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              multiple
+              onChange={e => {
+                if (e.target.files) processFiles(e.target.files)
+              }}
+            />
+          </div>
+
+          {images.length > 0 && (
+            <div className="image-gallery">
+              {images.map((img, idx) => (
+                <div key={img.id} className="image-card">
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    title="Xóa ảnh này"
+                    onClick={() => removeImage(img.id)}
+                  >
+                    ✕
+                  </button>
+                  <img src={img.url} alt={`Trang ${idx + 1}`} />
+                  <span className="dimensions">
+                    {img.width} × {img.height}px
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label>Đề bài (Markdown hoặc văn bản)</label>
           <textarea
-            placeholder="Dán nội dung đề bài vào đây..."
+            placeholder="Dán nội dung đề bài vào đây (hoặc dán ảnh đề bài ở trên)..."
             value={statement}
             onChange={e => setStatement(e.target.value)}
           />
@@ -186,7 +328,7 @@ export default function App() {
       <h1>AgentCP</h1>
       <p className="subtitle">
         Sinh test tự động cho lập trình thi đấu
-        <span className="badge">Claude Sonnet ✓</span>
+        <span className="badge">Multimodal Vision ≤ 1600px ✓</span>
       </p>
 
       <div className="tabs">

@@ -11,6 +11,11 @@ from agentcp.domain.models import ProcessRequest, ProcessResult
 from agentcp.settings import config
 from agentcp.providers import ai as ai_providers
 
+import base64
+import uuid
+import io
+from PIL import Image
+
 app = FastAPI(title="AgentCP Web API", version="0.1.0")
 
 app.add_middleware(
@@ -24,6 +29,7 @@ app.add_middleware(
 class GenerateRequest(BaseModel):
     problem_name: str = Field(..., description="Tên bài tập")
     text_content: str = Field("", description="Nội dung đề bài (markdown)")
+    images: List[str] = Field(default_factory=list, description="Danh sách ảnh base64 hoặc đường dẫn")
     image_paths: List[str] = Field(default_factory=list)
     user_cpp_code: str = Field("", description="Mã C++ mẫu người dùng cung cấp")
     output_dir: str = Field("", description="Thư mục output")
@@ -38,13 +44,52 @@ DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "generated_problems
 os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
 
 
+def _save_and_resize_image(img_data: str, target_dir: str) -> Optional[str]:
+    """Lưu và đảm bảo kích thước ảnh <= 1600px."""
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        img_id = uuid.uuid4().hex[:10]
+        out_path = os.path.join(target_dir, f"input_img_{img_id}.jpg")
+
+        if img_data.startswith("data:image"):
+            base64_str = img_data.split(",", 1)[-1]
+            raw_bytes = base64.b64decode(base64_str)
+            image = Image.open(io.BytesIO(raw_bytes))
+        elif os.path.exists(img_data):
+            image = Image.open(img_data)
+        else:
+            return None
+
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+
+        # Đảm bảo cạnh lớn nhất <= 1600px
+        image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+        image.save(out_path, format="JPEG", quality=85, optimize=True)
+        return out_path
+    except Exception:
+        return None
+
+
 @app.post("/api/generate", response_model=dict)
 async def generate(request: GenerateRequest):
     target_output_dir = request.output_dir or DEFAULT_OUTPUT_DIR
+    problem_dir = os.path.join(target_output_dir, request.problem_name)
+    temp_img_dir = os.path.join(problem_dir, "images")
+
+    all_image_paths = []
+    raw_images = list(request.images or []) + list(request.image_paths or [])
+    for raw_img in raw_images:
+        if not raw_img:
+            continue
+        saved_path = _save_and_resize_image(raw_img, temp_img_dir)
+        if saved_path:
+            all_image_paths.append(saved_path)
+
     proc_req = ProcessRequest(
         problem_name=request.problem_name,
         text_content=request.text_content,
-        image_paths=request.image_paths,
+        image_paths=all_image_paths,
         user_cpp_code=request.user_cpp_code,
         output_dir=target_output_dir,
         test_count=request.test_count,
