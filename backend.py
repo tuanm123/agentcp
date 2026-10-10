@@ -40,6 +40,8 @@ class GenerateRequest(BaseModel):
     model_name: Optional[str] = None
 
 
+import tempfile
+
 DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "generated_problems")
 os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
 
@@ -51,14 +53,22 @@ def _save_and_resize_image(img_data: str, target_dir: str) -> Optional[str]:
         img_id = uuid.uuid4().hex[:10]
         out_path = os.path.join(target_dir, f"input_img_{img_id}.jpg")
 
-        if img_data.startswith("data:image"):
+        if "base64," in img_data:
+            base64_str = img_data.split("base64,", 1)[-1]
+            raw_bytes = base64.b64decode(base64_str)
+            image = Image.open(io.BytesIO(raw_bytes))
+        elif img_data.startswith("data:image"):
             base64_str = img_data.split(",", 1)[-1]
             raw_bytes = base64.b64decode(base64_str)
             image = Image.open(io.BytesIO(raw_bytes))
         elif os.path.exists(img_data):
             image = Image.open(img_data)
         else:
-            return None
+            try:
+                raw_bytes = base64.b64decode(img_data)
+                image = Image.open(io.BytesIO(raw_bytes))
+            except Exception:
+                return None
 
         if image.mode not in ("RGB", "L"):
             image = image.convert("RGB")
@@ -67,15 +77,15 @@ def _save_and_resize_image(img_data: str, target_dir: str) -> Optional[str]:
         image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
         image.save(out_path, format="JPEG", quality=85, optimize=True)
         return out_path
-    except Exception:
+    except Exception as e:
+        print(f"Error saving image: {e}")
         return None
 
 
 @app.post("/api/generate", response_model=dict)
 async def generate(request: GenerateRequest):
     target_output_dir = request.output_dir or DEFAULT_OUTPUT_DIR
-    problem_dir = os.path.join(target_output_dir, request.problem_name)
-    temp_img_dir = os.path.join(problem_dir, "images")
+    temp_img_dir = os.path.join(tempfile.gettempdir(), f"agentcp_uploads_{uuid.uuid4().hex[:8]}")
 
     all_image_paths = []
     raw_images = list(request.images or []) + list(request.image_paths or [])
@@ -85,6 +95,8 @@ async def generate(request: GenerateRequest):
         saved_path = _save_and_resize_image(raw_img, temp_img_dir)
         if saved_path:
             all_image_paths.append(saved_path)
+
+    print(f"DEBUG: Problem '{request.problem_name}', received {len(raw_images)} raw images, saved {len(all_image_paths)} images: {all_image_paths}")
 
     proc_req = ProcessRequest(
         problem_name=request.problem_name,

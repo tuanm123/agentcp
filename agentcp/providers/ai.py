@@ -344,6 +344,9 @@ def _build_prompt(
     text_content = (text_content or "").strip()
     image_paths = image_paths or []
 
+    if not text_content and image_paths:
+        text_content = "Read the entire problem statement, constraints, input/output formats, and samples directly from the attached problem image(s)."
+
     if _current_provider == "openai":
         content = [{"type": "text", "text": prompt}]
         if text_content:
