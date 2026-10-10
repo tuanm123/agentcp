@@ -716,6 +716,20 @@ def _validate_generated_output_files(test_folders: list[str], problem_name: str)
         raise ValueError(f"Generator did not create any output files named {problem_name}.out.")
     if missing:
         raise ValueError(f"Generator did not create output files for {len(missing)} test folder(s).")
+
+    empty_outputs = []
+    for folder_path in test_folders:
+        out_file = os.path.join(folder_path, f"{problem_name}.out")
+        try:
+            with open(out_file, "r", encoding="utf-8", errors="ignore") as f:
+                if not f.read().strip():
+                    empty_outputs.append(folder_path)
+        except OSError:
+            empty_outputs.append(folder_path)
+
+    if len(empty_outputs) == len(test_folders):
+        raise ValueError("Tất cả file output (.out) đều rỗng! Lời giải C++ không in ra kết quả qua stdout.")
+
     return len(test_folders)
 
 
@@ -784,8 +798,12 @@ def _missing_analysis_fields(
         )
         if not useful_statement:
             missing.append("statement.problem")
-    if require_cpp_solution and not str((plan or {}).get("cpp_solution", "")).strip():
-        missing.append("cpp_solution")
+    if require_cpp_solution:
+        cpp_code = str((plan or {}).get("cpp_solution", "")).strip()
+        if not cpp_code:
+            missing.append("cpp_solution")
+        elif not any(tok in cpp_code for tok in ("cout", "printf", "puts", "putchar", "write")):
+            missing.append("cpp_solution (must output answer via cout or printf)")
     return missing
 
 

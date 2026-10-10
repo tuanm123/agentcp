@@ -264,7 +264,7 @@ Required JSON keys:
 __ANALYSIS_REQUIRED_JSON__
 
 Workflow:
-- Step 1 only: extract the complete statement JSON and prepare cpp_solution when needed.
+- Step 1 only: extract the complete statement JSON and write a complete, correct cpp_solution that actually solves the problem and outputs answers.
 - Extract every official subtask/scoring rule into subtasks_info before any testcase generator is written.
 - Do not write test_generator in this step.
 

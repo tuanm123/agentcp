@@ -289,8 +289,9 @@ def _build_prompt(
     )
     if require_cpp_solution:
         cpp_solution_rules = (
-            "- cpp_solution must be non-empty C++17 code only, plain text.\n"
-            "- It must read stdin and write stdout."
+            "- cpp_solution must be a complete, correct, optimal, working C++17 solution that solves the problem.\n"
+            "- It must read all inputs from standard input (cin/stdin), compute the correct answers, and print them to standard output (cout/stdout).\n"
+            "- It must NEVER be an empty stub, template, or skeleton with only 'return 0;'. The code is compiled and executed to generate all .out files."
         )
     else:
         cpp_solution_rules = (
