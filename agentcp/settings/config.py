@@ -8,16 +8,16 @@ DEFAULT_PROVIDER = "gemini"
 SUPPORTED_PROVIDERS = ("gemini", "openai", "anthropic")
 
 DEFAULT_MODEL_BY_PROVIDER = {
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.8-flash",
     "openai": "gpt-5.4-mini",
     "anthropic": "claude-3-5-sonnet-20241022",
 }
 
 SUPPORTED_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
+    "gemini-3.1-pro-preview",
 )
 
 DEFAULT_UI_LANGUAGE = "vi"

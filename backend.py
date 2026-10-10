@@ -56,12 +56,15 @@ async def generate(request: GenerateRequest):
 
 
 @app.get("/api/models")
-async def get_models(provider: str = "gemini"):
+async def get_models(provider: str = "gemini", api_key: Optional[str] = None):
     try:
-        models = config.get_supported_models(provider)
+        if api_key and api_key.strip():
+            models = ai_providers.get_model_candidates(provider, api_key)
+        else:
+            models = config.get_supported_models(provider)
         return {"provider": provider, "models": models}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return {"provider": provider, "models": config.get_supported_models(provider)}
 
 
 @app.get("/api/providers")
