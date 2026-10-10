@@ -132,7 +132,31 @@ function GenerateTab() {
       {error && <div className="error">❌ {error}</div>}
 
       {result && (
-        <div className="result">{JSON.stringify(result, null, 2)}</div>
+        <div className="card" style={{ marginTop: 20, borderColor: '#10b981' }}>
+          <h3 style={{ color: '#10b981', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ✅ Sinh test thành công!
+          </h3>
+          <p style={{ marginBottom: 12, fontSize: '0.9rem' }}>
+            <strong>📁 Thư mục lưu trên máy:</strong><br />
+            <code style={{ background: '#0f1117', color: '#6ee7f7', padding: '4px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>
+              {(result as any).output_dir || (result as any).zip_path}
+            </code>
+          </p>
+          {(result as any).download_url && (
+            <a
+              href={(result as any).download_url}
+              download
+              className="btn btn-primary"
+              style={{ display: 'inline-block', textAlign: 'center', textDecoration: 'none', marginBottom: 16 }}
+            >
+              📥 Tải file ZIP bộ test ({(result as any).problem_name}.zip)
+            </a>
+          )}
+          <details style={{ marginTop: 12, cursor: 'pointer' }}>
+            <summary style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Xem chi tiết kết quả (JSON)</summary>
+            <div className="result">{JSON.stringify(result, null, 2)}</div>
+          </details>
+        </div>
       )}
     </form>
   )

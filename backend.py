@@ -34,14 +34,19 @@ class GenerateRequest(BaseModel):
     model_name: Optional[str] = None
 
 
+DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "generated_problems")
+os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
+
+
 @app.post("/api/generate", response_model=dict)
 async def generate(request: GenerateRequest):
+    target_output_dir = request.output_dir or DEFAULT_OUTPUT_DIR
     proc_req = ProcessRequest(
         problem_name=request.problem_name,
         text_content=request.text_content,
         image_paths=request.image_paths,
         user_cpp_code=request.user_cpp_code,
-        output_dir=request.output_dir or "/tmp",
+        output_dir=target_output_dir,
         test_count=request.test_count,
         generate_statement=request.generate_statement,
         api_key=request.api_key or "",
@@ -50,9 +55,27 @@ async def generate(request: GenerateRequest):
     )
     try:
         result: ProcessResult = process_problem_request(proc_req)
-        return {"plan": result.plan, "zip_path": result.zip_path}
+        return {
+            "plan": result.plan,
+            "zip_path": result.zip_path,
+            "problem_name": request.problem_name,
+            "output_dir": os.path.join(target_output_dir, request.problem_name),
+            "download_url": f"/api/download/{request.problem_name}",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/download/{problem_name}")
+async def download_zip(problem_name: str):
+    zip_file = os.path.join(DEFAULT_OUTPUT_DIR, problem_name, f"{problem_name}.zip")
+    if not os.path.exists(zip_file):
+        fallback_zip = os.path.join("/tmp", problem_name, f"{problem_name}.zip")
+        if os.path.exists(fallback_zip):
+            zip_file = fallback_zip
+        else:
+            raise HTTPException(status_code=404, detail="File zip không tồn tại.")
+    return FileResponse(zip_file, media_type="application/zip", filename=f"{problem_name}.zip")
 
 
 @app.get("/api/models")
